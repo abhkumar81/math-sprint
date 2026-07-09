@@ -165,7 +165,7 @@ button{font-family:inherit;cursor:pointer;border:none}
     <div class="section-label">Difficulty</div>
     <div class="diff-row" id="diff-row"></div>
     <div class="spacer"></div>
-    <button class="btn big" id="start-btn" onclick="startSession()">⏱️ Start 5-Minute Session</button>
+    <button class="btn big" id="start-btn" onclick="startSession()">⏱️ Start 10-Minute Session</button>
     <div class="spacer"></div>
     <button class="link-btn" onclick="showRecent()">View Recent Results ›</button>
   </section>
@@ -179,7 +179,7 @@ button{font-family:inherit;cursor:pointer;border:none}
         <div class="diff-tag" id="s-diff"></div>
       </div>
     </div>
-    <div style="text-align:center"><span class="timer" id="s-timer">05:00</span></div>
+    <div style="text-align:center"><span class="timer" id="s-timer">10:00</span></div>
     <div class="tally"><span class="c" id="s-correct">0 ✓</span><span class="w" id="s-wrong">0 ✗</span></div>
     <div class="progress"><i id="s-bar"></i></div>
     <div class="question" id="s-question">—</div>
@@ -244,7 +244,7 @@ function specText(profile, diff){
   const s = spec(profile, diff);
   return `${s.l[0]}–${s.l[1]} × ${s.r[0]}–${s.r[1]}`;
 }
-const SESSION_SECONDS = 5 * 60;
+const SESSION_SECONDS = 10 * 60;
 const MAX_RESULTS = 25;
 const HISTORY_SESSIONS = 2;
 
@@ -544,7 +544,7 @@ function showRecent(){
   const list = document.getElementById("recent-list");
   list.innerHTML = "";
   if(!st.recentSessions.length){
-    list.innerHTML = `<div class="empty">No sessions yet.<br>Finish a 5-minute sprint and it will show up here.</div>`;
+    list.innerHTML = `<div class="empty">No sessions yet.<br>Finish a 10-minute sprint and it will show up here.</div>`;
   } else {
     st.recentSessions.forEach(r => {
       const d = new Date(r.date);
