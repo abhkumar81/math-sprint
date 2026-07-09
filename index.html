@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Math Sprint</title>
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Math Sprint">
+<meta name="theme-color" content="#4F46E5">
+<style>
+:root{
+  --indigo:#4F46E5; --indigo-2:#7C3AED;
+  --teal:#0D9488; --teal-2:#14B8A6;
+  --ink:#1F2430; --ink-soft:#5B6172;
+  --paper:#F4F5FB; --card:#FFFFFF; --line:#E7E8F2;
+  --good:#16A34A; --good-bg:#E7F6EC;
+  --bad:#EA580C; --bad-bg:#FDECE0;
+  --shadow:0 10px 30px rgba(31,36,48,.10);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html{-webkit-text-size-adjust:100%}
+body{
+  font-family:ui-rounded,"SF Pro Rounded",system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+  color:var(--ink); background:var(--paper);
+  min-height:100vh; min-height:100dvh;
+  padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+.wrap{max-width:520px;margin:0 auto;padding:20px 18px 40px}
+.view{display:none;animation:fade .25s ease}
+.view.active{display:block}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+h1{font-size:38px;font-weight:800;letter-spacing:-.5px;text-align:center}
+.subtitle{text-align:center;color:var(--ink-soft);font-size:18px;font-weight:500;margin-top:2px}
+.section-label{font-size:15px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.6px;margin:22px 4px 10px}
+
+/* Buttons */
+button{font-family:inherit;cursor:pointer;border:none}
+.btn{
+  display:flex;align-items:center;justify-content:center;gap:8px;width:100%;
+  font-size:21px;font-weight:800;color:#fff;border-radius:18px;padding:18px;
+  background:var(--indigo);box-shadow:var(--shadow);transition:transform .08s ease,filter .15s ease;
+}
+.btn:active{transform:scale(.97)}
+.btn.teal{background:linear-gradient(135deg,var(--teal),var(--teal-2))}
+.btn.indigo{background:linear-gradient(135deg,var(--indigo),var(--indigo-2))}
+.btn.ghost{background:var(--card);color:var(--ink);box-shadow:none;border:2px solid var(--line);font-size:18px}
+.btn.big{font-size:23px;padding:20px}
+.btn:disabled{filter:grayscale(.5) opacity(.55);cursor:default}
+.link-btn{background:none;color:var(--indigo);font-weight:700;font-size:17px;padding:12px;width:100%;text-align:center}
+.back{background:none;color:var(--ink-soft);font-weight:700;font-size:17px;padding:8px 4px;display:inline-flex;align-items:center;gap:4px}
+
+/* Profile cards (home) */
+.profile-card{
+  display:block;width:100%;text-align:left;color:#fff;border-radius:26px;padding:22px;
+  margin-bottom:16px;box-shadow:var(--shadow);transition:transform .08s ease;
+}
+.profile-card:active{transform:scale(.98)}
+.profile-card.fourth{background:linear-gradient(135deg,var(--indigo),var(--indigo-2))}
+.profile-card.first{background:linear-gradient(135deg,var(--teal),var(--teal-2))}
+.profile-card .pc-top{display:flex;align-items:center;justify-content:space-between}
+.profile-card .pc-name{font-size:27px;font-weight:800}
+.profile-card .pc-emoji{font-size:34px}
+.badges{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:16px}
+.badge{background:rgba(255,255,255,.18);border-radius:14px;padding:10px 4px;text-align:center}
+.badge b{display:block;font-size:20px;font-weight:800}
+.badge span{font-size:12px;font-weight:600;opacity:.9}
+
+/* Dashboard */
+.streak-card{background:var(--card);border-radius:22px;padding:20px;text-align:center;box-shadow:var(--shadow)}
+.streak-card .sh{font-size:23px;font-weight:800}
+.streak-card .sm{color:var(--ink-soft);font-size:16px;font-weight:500;margin-top:4px}
+.streak-card .sl{color:#9aa0b4;font-size:14px;margin-top:6px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px}
+.tile{background:var(--card);border-radius:20px;padding:18px 12px;text-align:center;box-shadow:var(--shadow)}
+.tile .ti{font-size:26px}
+.tile b{display:block;font-size:30px;font-weight:800;margin-top:2px;line-height:1.1}
+.tile span{font-size:13px;font-weight:600;color:var(--ink-soft)}
+.diff-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.diff{background:var(--card);border:2px solid var(--line);border-radius:18px;padding:16px 10px;text-align:center;transition:.15s}
+.diff .dn{font-size:20px;font-weight:800}
+.diff .dr{font-size:13px;color:var(--ink-soft);margin-top:2px;font-weight:600}
+.diff.sel{color:#fff;border-color:transparent}
+.diff.sel.fourth{background:linear-gradient(135deg,var(--indigo),var(--indigo-2))}
+.diff.sel.first{background:linear-gradient(135deg,var(--teal),var(--teal-2))}
+.diff.sel .dr{color:rgba(255,255,255,.85)}
+
+/* Session */
+.sess-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px}
+.sess-top .who{font-size:18px;font-weight:800}
+.sess-top .diff-tag{font-size:15px;color:var(--ink-soft);font-weight:600}
+.timer{font-size:34px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:1px}
+.timer.low{color:#DC2626}
+.tally{display:flex;gap:18px;justify-content:center;font-size:22px;font-weight:800;margin:6px 0 4px}
+.tally .c{color:var(--good)} .tally .w{color:var(--bad)}
+.progress{height:8px;background:var(--line);border-radius:99px;overflow:hidden;margin:6px 0 26px}
+.progress i{display:block;height:100%;background:linear-gradient(90deg,var(--indigo),var(--indigo-2));width:100%;transition:width .3s linear}
+.question{font-size:58px;font-weight:800;text-align:center;letter-spacing:-1px}
+.feedback{height:32px;text-align:center;font-size:20px;font-weight:800;margin:14px 0}
+.feedback.good{color:var(--good)} .feedback.bad{color:var(--bad)}
+.answer{
+  width:100%;text-align:center;font-size:44px;font-weight:800;font-family:inherit;color:var(--ink);
+  border:3px solid var(--line);border-radius:20px;padding:14px;background:var(--card);margin-bottom:16px;
+  outline:none;transition:border-color .15s;
+}
+.answer:focus{border-color:var(--indigo)}
+
+/* Summary */
+.score-hero{color:#fff;border-radius:26px;padding:26px;text-align:center;box-shadow:var(--shadow);
+  background:linear-gradient(135deg,var(--good),#22C55E)}
+.score-hero .big{font-size:76px;font-weight:800;line-height:1}
+.score-hero .cap{font-size:18px;font-weight:600;opacity:.95}
+.result-title{font-size:32px;font-weight:800;text-align:center}
+.result-sub{text-align:center;color:var(--ink-soft);font-size:18px;font-weight:600;margin-top:2px;margin-bottom:18px}
+.rows{background:var(--card);border-radius:20px;box-shadow:var(--shadow);overflow:hidden;margin-top:14px}
+.row{display:flex;justify-content:space-between;padding:14px 18px;font-size:17px}
+.row+.row{border-top:1px solid var(--line)}
+.row b{font-weight:800}
+.encourage{text-align:center;color:var(--ink-soft);font-weight:600;font-size:16px;margin:18px 6px}
+
+/* Recent results */
+.result-item{background:var(--card);border-radius:18px;padding:16px;box-shadow:var(--shadow);margin-bottom:12px}
+.result-item .rh{display:flex;justify-content:space-between;align-items:center;color:var(--ink-soft);font-size:14px;font-weight:600}
+.pill{font-size:13px;font-weight:800;padding:4px 12px;border-radius:99px;background:#EEF0FA;color:var(--indigo)}
+.pill.hard{background:var(--bad-bg);color:var(--bad)}
+.result-item .rb{display:flex;justify-content:space-between;align-items:baseline;margin-top:8px}
+.result-item .rs{font-size:30px;font-weight:800}
+.result-item .rs span{font-size:15px;color:var(--ink-soft);font-weight:700}
+.result-item .rd{font-size:15px;font-weight:700;color:var(--ink-soft)}
+.empty{text-align:center;color:var(--ink-soft);padding:50px 20px;font-size:17px;font-weight:600}
+.spacer{height:14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- HOME -->
+  <section id="view-home" class="view active">
+    <h1>⚡️ Math Sprint</h1>
+    <p class="subtitle">Who's practicing today?</p>
+    <div class="spacer"></div><div class="spacer"></div>
+    <div id="home-cards"></div>
+  </section>
+
+  <!-- DASHBOARD -->
+  <section id="view-dash" class="view">
+    <button class="back" onclick="go('home')">‹ Choose profile</button>
+    <h1 id="dash-name" style="font-size:30px;margin-top:6px"></h1>
+    <div class="spacer"></div>
+    <div class="streak-card">
+      <div class="sh" id="dash-streak-h"></div>
+      <div class="sm" id="dash-streak-m"></div>
+      <div class="sl" id="dash-last"></div>
+    </div>
+    <div class="grid2">
+      <div class="tile"><div class="ti">🏆</div><b id="t-best">0</b><span>Highest Score</span></div>
+      <div class="tile"><div class="ti">⭐️</div><b id="t-total">0</b><span>Total Points</span></div>
+      <div class="tile"><div class="ti">✅</div><b id="t-sess">0</b><span>Sessions</span></div>
+      <div class="tile"><div class="ti">🔥</div><b id="t-streak">—</b><span>Streak</span></div>
+    </div>
+    <div class="section-label">Difficulty</div>
+    <div class="diff-row" id="diff-row"></div>
+    <div class="spacer"></div>
+    <button class="btn big" id="start-btn" onclick="startSession()">⏱️ Start 5-Minute Session</button>
+    <div class="spacer"></div>
+    <button class="link-btn" onclick="showRecent()">View Recent Results ›</button>
+  </section>
+
+  <!-- SESSION -->
+  <section id="view-session" class="view">
+    <div class="sess-top">
+      <button class="back" onclick="confirmQuit()">✕ End</button>
+      <div style="text-align:right">
+        <div class="who" id="s-who"></div>
+        <div class="diff-tag" id="s-diff"></div>
+      </div>
+    </div>
+    <div style="text-align:center"><span class="timer" id="s-timer">05:00</span></div>
+    <div class="tally"><span class="c" id="s-correct">0 ✓</span><span class="w" id="s-wrong">0 ✗</span></div>
+    <div class="progress"><i id="s-bar"></i></div>
+    <div class="question" id="s-question">—</div>
+    <div class="feedback" id="s-feedback">&nbsp;</div>
+    <input class="answer" id="s-answer" type="text" inputmode="numeric" pattern="[0-9]*"
+           autocomplete="off" enterkeyhint="go" placeholder="?">
+    <button class="btn big" id="s-submit" onclick="submitAnswer()">Submit</button>
+  </section>
+
+  <!-- SUMMARY -->
+  <section id="view-summary" class="view">
+    <div class="result-title" id="sum-title"></div>
+    <div class="result-sub" id="sum-sub"></div>
+    <div class="score-hero">
+      <div class="big" id="sum-score">0</div>
+      <div class="cap" id="sum-cap">points this sprint</div>
+    </div>
+    <div class="rows">
+      <div class="row"><span>Attempted</span><b id="sum-att">0</b></div>
+      <div class="row"><span>Correct</span><b id="sum-cor">0</b></div>
+      <div class="row"><span>Wrong</span><b id="sum-wro">0</b></div>
+      <div class="row"><span>Accuracy</span><b id="sum-acc">—</b></div>
+    </div>
+    <div class="rows">
+      <div class="row"><span>Highest Score</span><b id="sum-best">0</b></div>
+      <div class="row"><span>Total Points</span><b id="sum-tot">0</b></div>
+      <div class="row"><span>Practice Streak</span><b id="sum-str">0</b></div>
+    </div>
+    <div class="encourage" id="sum-enc"></div>
+    <button class="btn big indigo" onclick="playAgain()">🔄 Play Again</button>
+    <div class="spacer"></div>
+    <button class="btn ghost" onclick="go('dash');renderDash()">Back to Dashboard</button>
+  </section>
+
+  <!-- RECENT -->
+  <section id="view-recent" class="view">
+    <button class="back" onclick="go('dash')">‹ Back</button>
+    <h1 style="font-size:28px;margin-top:6px">Recent Results</h1>
+    <div class="spacer"></div>
+    <div id="recent-list"></div>
+  </section>
+
+</div>
+
+<script>
+"use strict";
+
+/* ---------- Profiles & difficulty specs ---------- */
+const PROFILES = {
+  "fourth-grader": { id:"fourth-grader", name:"Fourth Grader", grade:4, emoji:"🎒", cls:"fourth" },
+  "first-grader":  { id:"first-grader",  name:"First Grader",  grade:1, emoji:"🧸", cls:"first"  },
+};
+const PROFILE_ORDER = ["fourth-grader","first-grader"];
+
+function spec(profile, diff){
+  if(profile.grade >= 4){
+    return diff === "hard" ? {l:[51,99], r:[51,99]} : {l:[10,50], r:[10,50]};
+  }
+  return diff === "hard" ? {l:[51,99], r:[2,9]} : {l:[10,50], r:[2,9]};
+}
+function specText(profile, diff){
+  const s = spec(profile, diff);
+  return `${s.l[0]}–${s.l[1]} × ${s.r[0]}–${s.r[1]}`;
+}
+const SESSION_SECONDS = 5 * 60;
+const MAX_RESULTS = 25;
+const HISTORY_SESSIONS = 2;
+
+/* ---------- Persistence ---------- */
+const STORE_KEY = "mathsprint.stats.v1";
+function loadAll(){
+  try { return JSON.parse(localStorage.getItem(STORE_KEY)) || {}; }
+  catch(e){ return {}; }
+}
+function saveAll(data){
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(data)); } catch(e){}
+}
+function blankStats(id){
+  return { profileId:id, highestScore:0, cumulativeScore:0, totalSessions:0,
+           currentStreak:0, lastPracticeDate:null, recentSessions:[], historyByDiff:{} };
+}
+function getStats(id){
+  const all = loadAll();
+  return all[id] || blankStats(id);
+}
+
+/* ---------- Dates & streaks (calendar-day based) ---------- */
+function dayKey(d){ // local YYYY-MM-DD
+  const x = new Date(d);
+  return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,"0")}-${String(x.getDate()).padStart(2,"0")}`;
+}
+function daysBetween(aKey, bKey){
+  const a = new Date(aKey+"T00:00:00"), b = new Date(bKey+"T00:00:00");
+  return Math.round((b - a) / 86400000);
+}
+function updatedStreak(current, lastKey, todayKey){
+  if(!lastKey) return 1;
+  const gap = daysBetween(lastKey, todayKey);
+  if(gap === 0) return Math.max(current, 1);   // same day: no change
+  if(gap === 1) return Math.max(current, 0) + 1; // consecutive day
+  return 1;                                     // missed a day: reset
+}
+function displayStreak(current, lastKey, todayKey){
+  if(!lastKey) return 0;
+  const gap = daysBetween(lastKey, todayKey);
+  return (gap === 0 || gap === 1) ? current : 0; // broken streak shows as 0
+}
+
+/* ---------- Question generation ---------- */
+function randInt([lo,hi]){ return lo + Math.floor(Math.random() * (hi - lo + 1)); }
+function makeQuestion(l, r){
+  const lo = Math.min(l,r), hi = Math.max(l,r);
+  return { l, r, answer:l*r, display:`${l} × ${r}`, key:`${lo}x${hi}` };
+}
+function recentKeysFor(stats, diff){
+  const sessions = stats.historyByDiff[diff] || [];
+  const set = new Set();
+  sessions.forEach(list => list.forEach(k => set.add(k)));
+  return set;
+}
+function nextQuestion(profile, diff, sessionKeys, recentKeys){
+  const s = spec(profile, diff);
+  // Pass 1: avoid session + recent history
+  for(let i=0;i<300;i++){
+    const q = makeQuestion(randInt(s.l), randInt(s.r));
+    if(!sessionKeys.has(q.key) && !recentKeys.has(q.key)) return q;
+  }
+  // Pass 2: allow older questions, still no session repeats
+  for(let i=0;i<600;i++){
+    const q = makeQuestion(randInt(s.l), randInt(s.r));
+    if(!sessionKeys.has(q.key)) return q;
+  }
+  // Pass 3: deterministic sweep (last resort)
+  for(let l=s.l[0]; l<=s.l[1]; l++){
+    for(let r=s.r[0]; r<=s.r[1]; r++){
+      const q = makeQuestion(l,r);
+      if(!sessionKeys.has(q.key)) return q;
+    }
+  }
+  return makeQuestion(randInt(s.l), randInt(s.r)); // space exhausted (unreachable in 5 min)
+}
+
+/* ---------- Recording a finished session ---------- */
+function recordSession(profileId, diff, correct, wrong, keys){
+  const all = loadAll();
+  const stats = all[profileId] || blankStats(profileId);
+  const attempted = correct + wrong;
+  const now = new Date();
+  const todayKey = dayKey(now);
+  const wasNewRecord = correct > stats.highestScore;
+
+  stats.highestScore = Math.max(stats.highestScore, correct);
+  stats.cumulativeScore += correct;
+  stats.totalSessions += 1;
+  stats.currentStreak = updatedStreak(stats.currentStreak, stats.lastPracticeDate, todayKey);
+  stats.lastPracticeDate = todayKey;
+
+  const result = { date:now.toISOString(), difficulty:diff, attempted, correct, wrong,
+                   score:correct, accuracy: attempted ? correct/attempted : 0, wasNewRecord };
+  stats.recentSessions.unshift(result);
+  if(stats.recentSessions.length > MAX_RESULTS) stats.recentSessions.length = MAX_RESULTS;
+
+  const hist = stats.historyByDiff[diff] || [];
+  hist.unshift(keys);
+  if(hist.length > HISTORY_SESSIONS) hist.length = HISTORY_SESSIONS;
+  stats.historyByDiff[diff] = hist;
+
+  all[profileId] = stats;
+  saveAll(all);
+  return { result, stats };
+}
+
+/* ---------- View routing ---------- */
+function go(name){
+  document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
+  document.getElementById("view-"+name).classList.add("active");
+  window.scrollTo(0,0);
+}
+
+/* ---------- App state ---------- */
+let currentProfileId = null;
+let currentDiff = "medium";
+let session = null; // {sessionKeys, keysUsed, correct, wrong, question, endsAt, timer, running}
+
+/* ---------- HOME ---------- */
+function renderHome(){
+  const wrap = document.getElementById("home-cards");
+  wrap.innerHTML = "";
+  const todayKey = dayKey(new Date());
+  PROFILE_ORDER.forEach(id => {
+    const p = PROFILES[id], st = getStats(id);
+    const ds = displayStreak(st.currentStreak, st.lastPracticeDate, todayKey);
+    const last = st.recentSessions[0];
+    const card = document.createElement("button");
+    card.className = "profile-card " + p.cls;
+    card.onclick = () => openProfile(id);
+    card.innerHTML = `
+      <div class="pc-top"><span class="pc-name">${p.name}</span><span class="pc-emoji">${p.emoji}</span></div>
+      <div class="badges">
+        <div class="badge"><b>${st.highestScore}</b><span>Best</span></div>
+        <div class="badge"><b>${st.cumulativeScore}</b><span>Total</span></div>
+        <div class="badge"><b>${ds>0?ds+"🔥":"—"}</b><span>Streak</span></div>
+        <div class="badge"><b>${last?last.score:"—"}</b><span>Last</span></div>
+      </div>`;
+    wrap.appendChild(card);
+  });
+}
+
+/* ---------- DASHBOARD ---------- */
+function openProfile(id){
+  currentProfileId = id;
+  currentDiff = "medium";
+  renderDash();
+  go("dash");
+}
+function renderDash(){
+  const p = PROFILES[currentProfileId], st = getStats(currentProfileId);
+  const todayKey = dayKey(new Date());
+  const ds = displayStreak(st.currentStreak, st.lastPracticeDate, todayKey);
+  const practicedToday = st.lastPracticeDate === todayKey;
+
+  document.getElementById("dash-name").textContent = p.name;
+  document.getElementById("dash-streak-h").textContent =
+    ds > 0 ? `🔥 ${ds}-day practice streak` : "🌱 No streak yet";
+  document.getElementById("dash-streak-m").textContent =
+    practicedToday ? "You practiced today — great job! 🎉"
+    : ds > 0 ? "Practice today to keep your streak going"
+    : "Finish one sprint today to start a streak";
+  const last = st.lastPracticeDate;
+  document.getElementById("dash-last").textContent =
+    last ? "Last practiced: " + new Date(last+"T00:00:00").toLocaleDateString(undefined,{month:"short",day:"numeric",year:"numeric"}) : "";
+
+  document.getElementById("t-best").textContent = st.highestScore;
+  document.getElementById("t-total").textContent = st.cumulativeScore;
+  document.getElementById("t-sess").textContent = st.totalSessions;
+  document.getElementById("t-streak").textContent = ds > 0 ? ds + (ds===1?" day":" days") : "—";
+
+  const row = document.getElementById("diff-row");
+  row.innerHTML = "";
+  ["medium","hard"].forEach(d => {
+    const el = document.createElement("button");
+    el.className = "diff" + (currentDiff===d ? " sel "+p.cls : "");
+    el.innerHTML = `<div class="dn">${d==="medium"?"Medium":"Hard"}</div><div class="dr">${specText(p,d)}</div>`;
+    el.onclick = () => { currentDiff = d; renderDash(); };
+    row.appendChild(el);
+  });
+}
+
+/* ---------- SESSION ---------- */
+function startSession(){
+  const p = PROFILES[currentProfileId];
+  const recentKeys = recentKeysFor(getStats(currentProfileId), currentDiff);
+  session = {
+    profile:p, diff:currentDiff, recentKeys,
+    sessionKeys:new Set(), keysUsed:[], correct:0, wrong:0,
+    endsAt: Date.now() + SESSION_SECONDS*1000, running:true, timer:null, fbToken:0
+  };
+  document.getElementById("s-who").textContent = p.name;
+  document.getElementById("s-diff").textContent = currentDiff==="medium"?"Medium":"Hard";
+  document.getElementById("s-correct").textContent = "0 ✓";
+  document.getElementById("s-wrong").textContent = "0 ✗";
+  document.getElementById("s-answer").value = "";
+  document.getElementById("s-answer").disabled = false;
+  document.getElementById("s-submit").disabled = false;
+  setFeedback("");
+  go("session");
+  nextQ();
+  tick();
+  session.timer = setInterval(tick, 250);
+  // focus the field to raise the numeric keyboard
+  setTimeout(() => document.getElementById("s-answer").focus(), 250);
+}
+function nextQ(){
+  const q = nextQuestion(session.profile, session.diff, session.sessionKeys, session.recentKeys);
+  session.sessionKeys.add(q.key);
+  session.keysUsed.push(q.key);
+  session.question = q;
+  document.getElementById("s-question").textContent = q.display;
+}
+function tick(){
+  if(!session || !session.running) return;
+  const remaining = Math.max(0, Math.round((session.endsAt - Date.now())/1000));
+  const mm = String(Math.floor(remaining/60)).padStart(2,"0");
+  const ss = String(remaining%60).padStart(2,"0");
+  const t = document.getElementById("s-timer");
+  t.textContent = `${mm}:${ss}`;
+  t.classList.toggle("low", remaining <= 30);
+  document.getElementById("s-bar").style.width = (remaining/SESSION_SECONDS*100) + "%";
+  if(remaining <= 0) finishSession();
+}
+function submitAnswer(){
+  if(!session || !session.running) return;
+  const field = document.getElementById("s-answer");
+  const raw = field.value.replace(/[^0-9]/g,"");
+  if(raw === "") return;                    // block empty
+  const val = parseInt(raw,10);
+  if(val === session.question.answer){
+    session.correct++;
+    document.getElementById("s-correct").textContent = session.correct + " ✓";
+    setFeedback("Correct!","good");
+  } else {
+    session.wrong++;
+    document.getElementById("s-wrong").textContent = session.wrong + " ✗";
+    setFeedback("Answer: " + session.question.answer, "bad");
+  }
+  field.value = "";
+  nextQ();
+  field.focus();                            // keep keyboard up for fast entry
+}
+function setFeedback(text, cls){
+  const el = document.getElementById("s-feedback");
+  el.textContent = text || " ";
+  el.className = "feedback" + (cls?" "+cls:"");
+  if(!text) return;
+  const token = ++session.fbToken;
+  setTimeout(() => { if(session && session.fbToken === token){
+    el.textContent = " "; el.className = "feedback";
+  }}, 1100);
+}
+function confirmQuit(){
+  if(!session) { go("dash"); return; }
+  if(confirm("End this sprint early? Your progress so far will be saved.")) finishSession();
+}
+function finishSession(){
+  if(!session || !session.running) return;
+  session.running = false;
+  clearInterval(session.timer);
+  document.getElementById("s-answer").disabled = true;
+  document.getElementById("s-submit").disabled = true;
+  document.getElementById("s-answer").blur();
+  const { result, stats } = recordSession(
+    session.profile.id, session.diff, session.correct, session.wrong, session.keysUsed);
+  showSummary(result, stats);
+}
+
+/* ---------- SUMMARY ---------- */
+function showSummary(result, stats){
+  document.getElementById("sum-title").textContent = result.wasNewRecord ? "🎉 New Record!" : "⏱️ Time's Up!";
+  document.getElementById("sum-sub").textContent =
+    `${PROFILES[session.profile.id].name} • ${result.difficulty==="medium"?"Medium":"Hard"}`;
+  document.getElementById("sum-score").textContent = result.score;
+  document.getElementById("sum-cap").textContent = result.score===1 ? "point this sprint" : "points this sprint";
+  document.getElementById("sum-att").textContent = result.attempted;
+  document.getElementById("sum-cor").textContent = result.correct;
+  document.getElementById("sum-wro").textContent = result.wrong;
+  document.getElementById("sum-acc").textContent = result.attempted ? Math.round(result.accuracy*100)+"%" : "—";
+  document.getElementById("sum-best").textContent = stats.highestScore + (result.wasNewRecord ? " 🏆" : "");
+  document.getElementById("sum-tot").textContent = stats.cumulativeScore;
+  document.getElementById("sum-str").textContent = stats.currentStreak + (stats.currentStreak===1?" day 🔥":" days 🔥");
+  document.getElementById("sum-enc").textContent =
+    result.wasNewRecord ? "Amazing — that's your best sprint ever!"
+    : result.attempted === 0 ? "Warm-up over. Ready to try one for real?"
+    : result.accuracy >= 0.9 ? "Super accurate! Try beating your best score next time."
+    : "Great practice! Every sprint adds to your total.";
+  go("summary");
+}
+function playAgain(){ startSession(); }
+
+/* ---------- RECENT ---------- */
+function showRecent(){
+  const st = getStats(currentProfileId);
+  const list = document.getElementById("recent-list");
+  list.innerHTML = "";
+  if(!st.recentSessions.length){
+    list.innerHTML = `<div class="empty">No sessions yet.<br>Finish a 5-minute sprint and it will show up here.</div>`;
+  } else {
+    st.recentSessions.forEach(r => {
+      const d = new Date(r.date);
+      const when = d.toLocaleDateString(undefined,{month:"short",day:"numeric"}) + " · " +
+                   d.toLocaleTimeString(undefined,{hour:"numeric",minute:"2-digit"});
+      const item = document.createElement("div");
+      item.className = "result-item";
+      item.innerHTML = `
+        <div class="rh"><span>${when}</span>
+          <span class="pill ${r.difficulty==="hard"?"hard":""}">${r.difficulty==="medium"?"Medium":"Hard"}</span></div>
+        <div class="rb">
+          <div class="rs">${r.score} <span>${r.score===1?"pt":"pts"}</span> ${r.wasNewRecord?"🏆":""}</div>
+          <div class="rd">${r.correct} ✓  ${r.wrong} ✗  ${r.attempted?Math.round(r.accuracy*100)+"%":"—"}</div>
+        </div>`;
+      list.appendChild(item);
+    });
+  }
+  go("recent");
+}
+
+/* ---------- Input wiring ---------- */
+const answerEl = document.getElementById("s-answer");
+answerEl.addEventListener("input", () => {
+  answerEl.value = answerEl.value.replace(/[^0-9]/g,"").slice(0,6);
+});
+answerEl.addEventListener("keydown", e => { if(e.key === "Enter"){ e.preventDefault(); submitAnswer(); } });
+
+/* ---------- Boot ---------- */
+renderHome();
+</script>
+</body>
+</html>
