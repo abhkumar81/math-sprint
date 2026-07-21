@@ -133,6 +133,15 @@ button{font-family:inherit;cursor:pointer;border:none}
 .result-item .rd{font-size:15px;font-weight:700;color:var(--ink-soft)}
 .empty{text-align:center;color:var(--ink-soft);padding:50px 20px;font-size:17px;font-weight:600}
 .spacer{height:14px}
+.profile-card.add{background:var(--card);color:var(--ink);border:2.5px dashed #C9CBDC;box-shadow:none}
+.profile-card.add .pc-name{color:var(--indigo)}
+.profile-card.add .add-sub{color:var(--ink-soft);font-weight:600;font-size:15px;margin-top:8px}
+.link-btn.danger{color:var(--bad)}
+.bk-area{width:100%;min-height:88px;border:2px solid var(--line);border-radius:16px;padding:12px;
+  font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;line-height:1.5;color:var(--ink);
+  background:var(--card);resize:vertical;margin-bottom:12px;word-break:break-all;outline:none}
+.bk-area:focus{border-color:var(--indigo)}
+.bk-msg{min-height:24px;text-align:center;font-weight:700;font-size:15px;color:var(--ink-soft);margin:12px 0 4px}
 </style>
 </head>
 <body>
@@ -144,6 +153,8 @@ button{font-family:inherit;cursor:pointer;border:none}
     <p class="subtitle">Who's practicing today?</p>
     <div class="spacer"></div><div class="spacer"></div>
     <div id="home-cards"></div>
+    <div class="spacer"></div>
+    <button class="link-btn" onclick="showBackup()">☁︎ Move scores to another device ›</button>
   </section>
 
   <!-- DASHBOARD -->
@@ -168,6 +179,8 @@ button{font-family:inherit;cursor:pointer;border:none}
     <button class="btn big" id="start-btn" onclick="startSession()">⏱️ Start 10-Minute Session</button>
     <div class="spacer"></div>
     <button class="link-btn" onclick="showRecent()">View Recent Results ›</button>
+    <div class="spacer"></div>
+    <button class="link-btn danger" onclick="removePlayer()">Remove this player</button>
   </section>
 
   <!-- SESSION -->
@@ -222,17 +235,60 @@ button{font-family:inherit;cursor:pointer;border:none}
     <div id="recent-list"></div>
   </section>
 
+  <!-- NEW PLAYER -->
+  <section id="view-newuser" class="view">
+    <button class="back" onclick="go('home')">‹ Back</button>
+    <h1 style="font-size:30px;margin-top:6px">New Player</h1>
+    <p class="result-sub" style="text-align:left;margin:6px 4px 16px">Pick a name and a level.</p>
+    <input class="answer" id="nu-name" type="text" autocomplete="off" maxlength="18"
+           placeholder="Name" style="font-size:26px;text-align:left">
+    <div class="section-label">Level</div>
+    <div class="diff-row" id="nu-grade"></div>
+    <div class="spacer"></div>
+    <button class="btn big" id="nu-create" onclick="createUser()">Create Player</button>
+  </section>
+
+  <!-- BACKUP / TRANSFER -->
+  <section id="view-backup" class="view">
+    <button class="back" onclick="go('home')">‹ Back</button>
+    <h1 style="font-size:26px;margin-top:6px">Move Scores Between Devices</h1>
+    <p class="result-sub" style="text-align:left;margin:6px 4px 8px;font-size:16px">
+      No login needed. Copy this device's code and paste it on the other device.</p>
+
+    <div class="section-label">This device's code</div>
+    <textarea id="bk-export" class="bk-area" readonly onclick="this.select()"></textarea>
+    <button class="btn" onclick="copyExport()">📋 Copy code</button>
+    <div class="spacer"></div>
+    <button class="btn ghost" onclick="downloadBackup()">⬇︎ Save as a file instead</button>
+
+    <div class="section-label">Paste a code from another device</div>
+    <textarea id="bk-import" class="bk-area" placeholder="Paste the code here"></textarea>
+    <button class="btn indigo" onclick="importCode()">Restore onto this device</button>
+    <p class="bk-msg" id="bk-msg"></p>
+    <button class="link-btn" onclick="document.getElementById('bk-file').click()">or load from a saved file</button>
+    <input type="file" id="bk-file" accept=".txt,application/json,text/plain" style="display:none" onchange="uploadBackup(event)">
+  </section>
+
 </div>
 
 <script>
 "use strict";
 
 /* ---------- Profiles & difficulty specs ---------- */
-const PROFILES = {
-  "fourth-grader": { id:"fourth-grader", name:"Fourth Grader", grade:4, emoji:"🎒", cls:"fourth" },
-  "first-grader":  { id:"first-grader",  name:"First Grader",  grade:1, emoji:"🧸", cls:"first"  },
-};
-const PROFILE_ORDER = ["fourth-grader","first-grader"];
+const PROFILES_KEY = "mathsprint.profiles.v1";
+const DEFAULT_PROFILES = [
+  { id:"fourth-grader", name:"Smart Maahi",  grade:4, emoji:"🎒", cls:"fourth" },
+  { id:"first-grader",  name:"Smart Mihir",  grade:1, emoji:"🧸", cls:"first"  },
+];
+const NEW_EMOJIS = ["🚀","🌟","🦄","🐯","🦊","🐨","🦁","🐸","⚡️","🌈","🍭","🎈","🐼","🦕"];
+function loadProfiles(){
+  let list;
+  try { list = JSON.parse(localStorage.getItem(PROFILES_KEY)); } catch(e){ list = null; }
+  if(!Array.isArray(list) || !list.length){ list = DEFAULT_PROFILES.map(p => ({...p})); saveProfiles(list); }
+  return list;
+}
+function saveProfiles(list){ try{ localStorage.setItem(PROFILES_KEY, JSON.stringify(list)); }catch(e){} }
+function profileById(id){ return loadProfiles().find(p => p.id === id) || null; }
 
 function spec(profile, diff){
   if(profile.grade >= 4){
@@ -369,15 +425,15 @@ function renderHome(){
   const wrap = document.getElementById("home-cards");
   wrap.innerHTML = "";
   const todayKey = dayKey(new Date());
-  PROFILE_ORDER.forEach(id => {
-    const p = PROFILES[id], st = getStats(id);
+  loadProfiles().forEach(p => {
+    const st = getStats(p.id);
     const ds = displayStreak(st.currentStreak, st.lastPracticeDate, todayKey);
     const last = st.recentSessions[0];
     const card = document.createElement("button");
     card.className = "profile-card " + p.cls;
-    card.onclick = () => openProfile(id);
+    card.onclick = () => openProfile(p.id);
     card.innerHTML = `
-      <div class="pc-top"><span class="pc-name">${p.name}</span><span class="pc-emoji">${p.emoji}</span></div>
+      <div class="pc-top"><span class="pc-name">${escapeHtml(p.name)}</span><span class="pc-emoji">${p.emoji||"🙂"}</span></div>
       <div class="badges">
         <div class="badge"><b>${st.highestScore}</b><span>Best</span></div>
         <div class="badge"><b>${st.cumulativeScore}</b><span>Total</span></div>
@@ -386,7 +442,14 @@ function renderHome(){
       </div>`;
     wrap.appendChild(card);
   });
+  const add = document.createElement("button");
+  add.className = "profile-card add";
+  add.onclick = showNewUser;
+  add.innerHTML = `<div class="pc-top"><span class="pc-name">＋ New Player</span><span class="pc-emoji">🙂</span></div>
+    <div class="add-sub">Add a Grade 4 or Grade 1 player</div>`;
+  wrap.appendChild(add);
 }
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
 
 /* ---------- DASHBOARD ---------- */
 function openProfile(id){
@@ -396,7 +459,7 @@ function openProfile(id){
   go("dash");
 }
 function renderDash(){
-  const p = PROFILES[currentProfileId], st = getStats(currentProfileId);
+  const p = profileById(currentProfileId), st = getStats(currentProfileId);
   const todayKey = dayKey(new Date());
   const ds = displayStreak(st.currentStreak, st.lastPracticeDate, todayKey);
   const practicedToday = st.lastPracticeDate === todayKey;
@@ -430,7 +493,7 @@ function renderDash(){
 
 /* ---------- SESSION ---------- */
 function startSession(){
-  const p = PROFILES[currentProfileId];
+  const p = profileById(currentProfileId);
   const recentKeys = recentKeysFor(getStats(currentProfileId), currentDiff);
   session = {
     profile:p, diff:currentDiff, recentKeys,
@@ -519,7 +582,7 @@ function finishSession(){
 function showSummary(result, stats){
   document.getElementById("sum-title").textContent = result.wasNewRecord ? "🎉 New Record!" : "⏱️ Time's Up!";
   document.getElementById("sum-sub").textContent =
-    `${PROFILES[session.profile.id].name} • ${result.difficulty==="medium"?"Medium":"Hard"}`;
+    `${escapeHtml(session.profile.name)} • ${result.difficulty==="medium"?"Medium":"Hard"}`;
   document.getElementById("sum-score").textContent = result.score;
   document.getElementById("sum-cap").textContent = result.score===1 ? "point this sprint" : "points this sprint";
   document.getElementById("sum-att").textContent = result.attempted;
@@ -563,6 +626,100 @@ function showRecent(){
     });
   }
   go("recent");
+}
+
+/* ---------- NEW PLAYER ---------- */
+let newGrade = null;
+function showNewUser(){
+  newGrade = null;
+  document.getElementById("nu-name").value = "";
+  renderGradePick();
+  go("newuser");
+  setTimeout(() => document.getElementById("nu-name").focus(), 250);
+}
+function renderGradePick(){
+  const row = document.getElementById("nu-grade");
+  row.innerHTML = "";
+  [{g:4,label:"Grade 4",cls:"fourth",desc:"2-digit × 2-digit"},
+   {g:1,label:"Grade 1",cls:"first",desc:"2-digit × 1-digit"}].forEach(o => {
+    const el = document.createElement("button");
+    el.className = "diff" + (newGrade===o.g ? " sel "+o.cls : "");
+    el.innerHTML = `<div class="dn">${o.label}</div><div class="dr">${o.desc}</div>`;
+    el.onclick = () => { newGrade = o.g; renderGradePick(); };
+    row.appendChild(el);
+  });
+}
+function createUser(){
+  const name = document.getElementById("nu-name").value.trim();
+  if(!name){ alert("Please type a name."); document.getElementById("nu-name").focus(); return; }
+  if(!newGrade){ alert("Please pick Grade 4 or Grade 1."); return; }
+  const list = loadProfiles();
+  const id = "u" + Date.now().toString(36) + Math.floor(Math.random()*46656).toString(36);
+  const emoji = NEW_EMOJIS[Math.floor(Math.random()*NEW_EMOJIS.length)];
+  list.push({ id, name, grade:newGrade, emoji, cls: newGrade>=4 ? "fourth" : "first" });
+  saveProfiles(list);
+  openProfile(id);
+}
+function removePlayer(){
+  const p = profileById(currentProfileId);
+  if(!p) { go("home"); return; }
+  if(!confirm(`Remove ${p.name}? Their scores will be deleted from this device.`)) return;
+  saveProfiles(loadProfiles().filter(x => x.id !== currentProfileId));
+  const all = loadAll(); delete all[currentProfileId]; saveAll(all);
+  renderHome();
+  go("home");
+}
+
+/* ---------- DEVICE TRANSFER (no login — copy code or file) ---------- */
+function collectData(){ return { app:"math-sprint", v:1, profiles:loadProfiles(), stats:loadAll() }; }
+function encodeData(obj){ return btoa(unescape(encodeURIComponent(JSON.stringify(obj)))); }
+function decodeData(str){ return JSON.parse(decodeURIComponent(escape(atob(String(str).trim())))); }
+function showBackup(){
+  document.getElementById("bk-export").value = encodeData(collectData());
+  document.getElementById("bk-import").value = "";
+  setBkMsg("");
+  go("backup");
+}
+function copyExport(){
+  const t = document.getElementById("bk-export");
+  t.select(); t.setSelectionRange(0, t.value.length);
+  const done = () => setBkMsg("Copied! Now paste it on the other device.","good");
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(t.value).then(done).catch(() => { try{document.execCommand("copy");done();}catch(e){setBkMsg("Couldn't copy — long-press to select and copy.","bad");} });
+  } else { try{document.execCommand("copy");done();}catch(e){setBkMsg("Couldn't copy — long-press to select and copy.","bad");} }
+}
+function downloadBackup(){
+  const blob = new Blob([document.getElementById("bk-export").value], {type:"text/plain"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "math-sprint-scores.txt";
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+function importCode(){
+  const raw = document.getElementById("bk-import").value.trim();
+  if(!raw){ setBkMsg("Paste a code first.","bad"); return; }
+  let data;
+  try { data = decodeData(raw); } catch(e){ setBkMsg("That code doesn't look right — check you copied all of it.","bad"); return; }
+  if(!data || !Array.isArray(data.profiles) || typeof data.stats !== "object"){ setBkMsg("That code is missing data.","bad"); return; }
+  if(!confirm("Replace the players and scores on THIS device with the pasted ones? This can't be undone.")) return;
+  saveProfiles(data.profiles);
+  saveAll(data.stats);
+  document.getElementById("bk-import").value = "";
+  setBkMsg("Done! Scores restored on this device.","good");
+  renderHome();
+}
+function uploadBackup(ev){
+  const f = ev.target.files && ev.target.files[0]; if(!f) return;
+  const r = new FileReader();
+  r.onload = () => { document.getElementById("bk-import").value = String(r.result).trim(); setBkMsg("File loaded — tap Restore.","good"); };
+  r.readAsText(f);
+  ev.target.value = "";
+}
+function setBkMsg(t, cls){
+  const el = document.getElementById("bk-msg");
+  el.textContent = t || "";
+  el.style.color = cls==="bad" ? "var(--bad)" : cls==="good" ? "var(--good)" : "var(--ink-soft)";
 }
 
 /* ---------- Input wiring ---------- */
