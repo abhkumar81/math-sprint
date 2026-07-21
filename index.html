@@ -142,6 +142,11 @@ button{font-family:inherit;cursor:pointer;border:none}
   background:var(--card);resize:vertical;margin-bottom:12px;word-break:break-all;outline:none}
 .bk-area:focus{border-color:var(--indigo)}
 .bk-msg{min-height:24px;text-align:center;font-weight:700;font-size:15px;color:var(--ink-soft);margin:12px 0 4px}
+.adv{margin-top:28px;border-top:1px solid var(--line);padding-top:8px}
+.adv summary{cursor:pointer;font-weight:700;color:var(--ink-soft);font-size:16px;padding:8px 2px;list-style:none}
+.adv summary::-webkit-details-marker{display:none}
+.adv summary:before{content:"▸ "}
+.adv[open] summary:before{content:"▾ "}
 </style>
 </head>
 <body>
@@ -154,7 +159,7 @@ button{font-family:inherit;cursor:pointer;border:none}
     <div class="spacer"></div><div class="spacer"></div>
     <div id="home-cards"></div>
     <div class="spacer"></div>
-    <button class="link-btn" onclick="showBackup()">☁︎ Move scores to another device ›</button>
+    <button class="link-btn" id="home-sync-link" onclick="showBackup()">☁︎ Sync across devices ›</button>
   </section>
 
   <!-- DASHBOARD -->
@@ -248,25 +253,36 @@ button{font-family:inherit;cursor:pointer;border:none}
     <button class="btn big" id="nu-create" onclick="createUser()">Create Player</button>
   </section>
 
-  <!-- BACKUP / TRANSFER -->
+  <!-- SYNC / TRANSFER -->
   <section id="view-backup" class="view">
     <button class="back" onclick="go('home')">‹ Back</button>
-    <h1 style="font-size:26px;margin-top:6px">Move Scores Between Devices</h1>
-    <p class="result-sub" style="text-align:left;margin:6px 4px 8px;font-size:16px">
-      No login needed. Copy this device's code and paste it on the other device.</p>
+    <h1 style="font-size:26px;margin-top:6px">Sync Across Devices</h1>
+    <p class="result-sub" style="text-align:left;margin:6px 4px 10px;font-size:16px">
+      Type the same <b>Family Code</b> on every device. Scores then sync automatically — no passwords.</p>
 
-    <div class="section-label">This device's code</div>
-    <textarea id="bk-export" class="bk-area" readonly onclick="this.select()"></textarea>
-    <button class="btn" onclick="copyExport()">📋 Copy code</button>
+    <div class="section-label">Family code</div>
+    <input class="answer" id="sync-code" type="text" autocomplete="off" maxlength="30"
+           placeholder="e.g. kumar-family" style="font-size:22px;text-align:left">
+    <button class="btn indigo" id="sync-save" onclick="saveFamily()">Turn on sync</button>
     <div class="spacer"></div>
-    <button class="btn ghost" onclick="downloadBackup()">⬇︎ Save as a file instead</button>
+    <button class="btn ghost" id="sync-now" onclick="syncNowUI()" style="display:none">🔄 Sync now</button>
+    <p class="bk-msg" id="sync-msg"></p>
+    <button class="link-btn danger" id="sync-off" onclick="turnOffSync()" style="display:none">Turn off sync on this device</button>
 
-    <div class="section-label">Paste a code from another device</div>
-    <textarea id="bk-import" class="bk-area" placeholder="Paste the code here"></textarea>
-    <button class="btn indigo" onclick="importCode()">Restore onto this device</button>
-    <p class="bk-msg" id="bk-msg"></p>
-    <button class="link-btn" onclick="document.getElementById('bk-file').click()">or load from a saved file</button>
-    <input type="file" id="bk-file" accept=".txt,application/json,text/plain" style="display:none" onchange="uploadBackup(event)">
+    <details class="adv">
+      <summary>Advanced: transfer without internet</summary>
+      <div class="section-label">This device's code</div>
+      <textarea id="bk-export" class="bk-area" readonly onclick="this.select()"></textarea>
+      <button class="btn" onclick="copyExport()">📋 Copy code</button>
+      <div class="spacer"></div>
+      <button class="btn ghost" onclick="downloadBackup()">⬇︎ Save as a file instead</button>
+      <div class="section-label">Paste a code from another device</div>
+      <textarea id="bk-import" class="bk-area" placeholder="Paste the code here"></textarea>
+      <button class="btn indigo" onclick="importCode()">Restore onto this device</button>
+      <p class="bk-msg" id="bk-msg"></p>
+      <button class="link-btn" onclick="document.getElementById('bk-file').click()">or load from a saved file</button>
+      <input type="file" id="bk-file" accept=".txt,application/json,text/plain" style="display:none" onchange="uploadBackup(event)">
+    </details>
   </section>
 
 </div>
@@ -315,7 +331,7 @@ function saveAll(data){
 }
 function blankStats(id){
   return { profileId:id, highestScore:0, cumulativeScore:0, totalSessions:0,
-           currentStreak:0, lastPracticeDate:null, recentSessions:[], historyByDiff:{} };
+           currentStreak:0, lastPracticeDate:null, recentSessions:[], historyByDiff:{}, updatedAt:0 };
 }
 function getStats(id){
   const all = loadAll();
@@ -392,6 +408,7 @@ function recordSession(profileId, diff, correct, wrong, keys){
   stats.totalSessions += 1;
   stats.currentStreak = updatedStreak(stats.currentStreak, stats.lastPracticeDate, todayKey);
   stats.lastPracticeDate = todayKey;
+  stats.updatedAt = now.getTime();
 
   const result = { date:now.toISOString(), difficulty:diff, attempted, correct, wrong,
                    score:correct, accuracy: attempted ? correct/attempted : 0, wasNewRecord };
@@ -448,6 +465,8 @@ function renderHome(){
   add.innerHTML = `<div class="pc-top"><span class="pc-name">＋ New Player</span><span class="pc-emoji">🙂</span></div>
     <div class="add-sub">Add a Grade 4 or Grade 1 player</div>`;
   wrap.appendChild(add);
+  const link = document.getElementById("home-sync-link");
+  if(link) link.textContent = getFamilyCode() ? ("☁︎ Sync: " + getFamilyCode() + " ›") : "☁︎ Sync across devices ›";
 }
 function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
 
@@ -576,6 +595,7 @@ function finishSession(){
   const { result, stats } = recordSession(
     session.profile.id, session.diff, session.correct, session.wrong, session.keysUsed);
   showSummary(result, stats);
+  if(syncEnabled()) syncNow();   // push this result up (fire-and-forget)
 }
 
 /* ---------- SUMMARY ---------- */
@@ -670,6 +690,83 @@ function removePlayer(){
   go("home");
 }
 
+/* ---------- CLOUD SYNC (Firebase Realtime DB via REST; family code = shared key) ----------
+   Local-first: localStorage is always the source of truth on each device; the cloud is only
+   a best-effort sync channel, so scores are never lost even if the network/DB is unavailable.
+   Fill SYNC_DB_URL with your Firebase Realtime Database URL (no trailing slash). */
+const SYNC_DB_URL = "https://math-sprint-17646-default-rtdb.firebaseio.com";
+const FAMILY_KEY = "mathsprint.family.v1";
+function getFamilyCode(){ try{ return localStorage.getItem(FAMILY_KEY) || ""; }catch(e){ return ""; } }
+function setFamilyCode(c){ try{ c ? localStorage.setItem(FAMILY_KEY, c) : localStorage.removeItem(FAMILY_KEY); }catch(e){} }
+function familyPath(code){ return String(code).trim().toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,""); }
+function syncConfigured(){ return !!SYNC_DB_URL; }
+function syncEnabled(){ return !!SYNC_DB_URL && !!getFamilyCode(); }
+
+function maxDateKey(a,b){ if(!a) return b||null; if(!b) return a||null; return a>b?a:b; }
+function mergeStats(a,b){
+  if(!a) return b; if(!b) return a;
+  const base = (b.updatedAt||0) >= (a.updatedAt||0) ? {...b} : {...a};
+  base.highestScore    = Math.max(a.highestScore||0,    b.highestScore||0);     // monotonic → max never loses
+  base.cumulativeScore = Math.max(a.cumulativeScore||0, b.cumulativeScore||0);
+  base.totalSessions   = Math.max(a.totalSessions||0,   b.totalSessions||0);
+  base.updatedAt       = Math.max(a.updatedAt||0,       b.updatedAt||0);
+  base.lastPracticeDate= maxDateKey(a.lastPracticeDate, b.lastPracticeDate);
+  const seen=new Set(), rs=[];
+  [...(a.recentSessions||[]), ...(b.recentSessions||[])]
+    .sort((x,y)=> (x.date<y.date?1:x.date>y.date?-1:0))
+    .forEach(s => { if(s && !seen.has(s.date)){ seen.add(s.date); rs.push(s); } });
+  base.recentSessions = rs.slice(0, MAX_RESULTS);
+  const hist={};
+  ["medium","hard"].forEach(d => {
+    const hb=(b.historyByDiff&&b.historyByDiff[d])||[], ha=(a.historyByDiff&&a.historyByDiff[d])||[];
+    hist[d] = [...hb, ...ha].slice(0, HISTORY_SESSIONS);
+  });
+  base.historyByDiff = hist;
+  return base;
+}
+function mergeSnapshots(local, remote){
+  const byId={}; (local.profiles||[]).forEach(p=>byId[p.id]=p); (remote.profiles||[]).forEach(p=>{ if(!byId[p.id]) byId[p.id]=p; });
+  const profiles=[]; const push=p=>{ if(p && !profiles.find(x=>x.id===p.id)) profiles.push(byId[p.id]); };
+  (local.profiles||[]).forEach(push); (remote.profiles||[]).forEach(push);
+  const ids=new Set([...Object.keys(local.stats||{}), ...Object.keys(remote.stats||{})]);
+  const stats={}; ids.forEach(id => { stats[id]=mergeStats((local.stats||{})[id], (remote.stats||{})[id]); });
+  return { profiles, stats };
+}
+async function cloudGet(code){
+  const r = await fetch(`${SYNC_DB_URL}/families/${familyPath(code)}.json`, {cache:"no-store"});
+  if(!r.ok) throw new Error("get "+r.status);
+  const v = await r.json();                 // stored as a JSON string (avoids Firebase array quirks)
+  return v ? JSON.parse(v) : null;
+}
+async function cloudPut(code, snapshot){
+  const r = await fetch(`${SYNC_DB_URL}/families/${familyPath(code)}.json`,
+    {method:"PUT", headers:{"Content-Type":"application/json"}, body: JSON.stringify(JSON.stringify(snapshot))});
+  if(!r.ok) throw new Error("put "+r.status);
+  return true;
+}
+let _syncing=false, _lastSyncMsg="";
+async function syncNow(opts){
+  opts = opts||{};
+  if(!syncEnabled()) return {ok:false, reason:"off"};
+  if(_syncing) return {ok:false, reason:"busy"};
+  _syncing=true;
+  const code=getFamilyCode();
+  try{
+    const local={ profiles:loadProfiles(), stats:loadAll() };
+    let remote=null;
+    try{ remote = await cloudGet(code); }
+    catch(e){ _syncing=false; _lastSyncMsg="Couldn't reach the cloud — saved on this device."; if(opts.onDone)opts.onDone(false); return {ok:false, reason:"network"}; }
+    const merged = remote ? mergeSnapshots(local, remote) : local;
+    saveProfiles(merged.profiles); saveAll(merged.stats);
+    try{ await cloudPut(code, merged); }
+    catch(e){ _syncing=false; _lastSyncMsg="Pulled updates, but couldn't upload — will retry."; if(opts.rerender)renderHome(); if(opts.onDone)opts.onDone(false); return {ok:false, reason:"network"}; }
+    _syncing=false; _lastSyncMsg="Synced ✓";
+    if(opts.rerender){ renderHome(); if(document.getElementById("view-dash").classList.contains("active")) renderDash(); }
+    if(opts.onDone) opts.onDone(true);
+    return {ok:true};
+  }catch(e){ _syncing=false; _lastSyncMsg="Sync error — saved on this device."; if(opts.onDone)opts.onDone(false); return {ok:false, reason:"error"}; }
+}
+
 /* ---------- DEVICE TRANSFER (no login — copy code or file) ---------- */
 function collectData(){ return { app:"math-sprint", v:1, profiles:loadProfiles(), stats:loadAll() }; }
 function encodeData(obj){ return btoa(unescape(encodeURIComponent(JSON.stringify(obj)))); }
@@ -678,7 +775,47 @@ function showBackup(){
   document.getElementById("bk-export").value = encodeData(collectData());
   document.getElementById("bk-import").value = "";
   setBkMsg("");
+  refreshSyncUI();
+  if(!syncConfigured()) setSyncMsg("Auto-sync isn't set up on this version yet — use Advanced transfer below.","bad");
+  else if(getFamilyCode()) setSyncMsg("Sync is on ("+getFamilyCode()+").","good");
+  else setSyncMsg("");
   go("backup");
+}
+function refreshSyncUI(){
+  const code = getFamilyCode();
+  const cf = document.getElementById("sync-code");
+  if(cf && document.activeElement !== cf) cf.value = code;
+  document.getElementById("sync-off").style.display = code ? "block" : "none";
+  document.getElementById("sync-now").style.display = code ? "flex" : "none";
+  document.getElementById("sync-save").textContent = code ? "Update code" : "Turn on sync";
+  const link = document.getElementById("home-sync-link");
+  if(link) link.textContent = code ? ("☁︎ Sync: " + code + " ›") : "☁︎ Sync across devices ›";
+}
+function saveFamily(){
+  if(!syncConfigured()){ setSyncMsg("Auto-sync isn't set up on this version yet.","bad"); return; }
+  const raw = document.getElementById("sync-code").value.trim();
+  if(!raw){ setSyncMsg("Type a family code first.","bad"); return; }
+  if(!familyPath(raw)){ setSyncMsg("Use letters or numbers in the code.","bad"); return; }
+  setFamilyCode(raw);
+  refreshSyncUI();
+  setSyncMsg("Turning on sync…","good");
+  syncNow({ rerender:true, onDone:(ok)=>{ refreshSyncUI(); setSyncMsg(ok ? ("Sync is on ✓ ("+getFamilyCode()+")") : _lastSyncMsg, ok?"good":"bad"); } });
+}
+function syncNowUI(){
+  if(!syncEnabled()){ setSyncMsg("Turn on sync first.","bad"); return; }
+  setSyncMsg("Syncing…","good");
+  syncNow({ rerender:true, onDone:(ok)=> setSyncMsg(ok ? "Synced ✓" : _lastSyncMsg, ok?"good":"bad") });
+}
+function turnOffSync(){
+  if(!confirm("Turn off sync on this device? Scores stay here — they just won't sync until you turn it back on.")) return;
+  setFamilyCode("");
+  refreshSyncUI();
+  setSyncMsg("Sync turned off on this device.","good");
+}
+function setSyncMsg(t, cls){
+  const el = document.getElementById("sync-msg"); if(!el) return;
+  el.textContent = t || "";
+  el.style.color = cls==="bad" ? "var(--bad)" : cls==="good" ? "var(--good)" : "var(--ink-soft)";
 }
 function copyExport(){
   const t = document.getElementById("bk-export");
@@ -731,6 +868,10 @@ answerEl.addEventListener("keydown", e => { if(e.key === "Enter"){ e.preventDefa
 
 /* ---------- Boot ---------- */
 renderHome();
+if(syncEnabled()) syncNow({rerender:true});
+document.addEventListener("visibilitychange", () => {
+  if(!document.hidden && syncEnabled()) syncNow({rerender:true});
+});
 </script>
 </body>
 </html>
