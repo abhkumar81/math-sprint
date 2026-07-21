@@ -147,6 +147,19 @@ button{font-family:inherit;cursor:pointer;border:none}
 .adv summary::-webkit-details-marker{display:none}
 .adv summary:before{content:"▸ "}
 .adv[open] summary:before{content:"▾ "}
+.parent-block{margin-bottom:22px}
+.parent-name{font-size:22px;font-weight:800;margin:6px 2px 10px}
+.parent-empty{color:var(--ink-soft);font-weight:600;padding:8px 2px 4px}
+.parent-day{background:var(--card);border-radius:16px;box-shadow:var(--shadow);margin-bottom:12px;overflow:hidden}
+.pd-head{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:12px 16px;background:#EEF0FA}
+.pd-date{font-size:16px;font-weight:800}
+.pd-sum{font-size:14px;color:var(--ink-soft);font-weight:600;text-align:right}
+.pd-row{display:grid;grid-template-columns:auto 1fr auto auto;gap:10px;align-items:center;padding:10px 16px;border-top:1px solid var(--line);font-size:15px}
+.pr-time{color:var(--ink-soft);font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+.pr-diff{color:var(--ink-soft);font-weight:600}
+.pr-cw{font-weight:800;white-space:nowrap}
+.pr-acc{font-weight:700;color:var(--ink-soft);text-align:right;min-width:42px}
+.cok{color:var(--good)} .cwr{color:var(--bad)}
 </style>
 </head>
 <body>
@@ -159,6 +172,7 @@ button{font-family:inherit;cursor:pointer;border:none}
     <div class="spacer"></div><div class="spacer"></div>
     <div id="home-cards"></div>
     <div class="spacer"></div>
+    <button class="link-btn" id="home-parent-link" onclick="showParent()">👪 Parent View ›</button>
     <button class="link-btn" id="home-sync-link" onclick="showBackup()">☁︎ Sync across devices ›</button>
   </section>
 
@@ -240,6 +254,14 @@ button{font-family:inherit;cursor:pointer;border:none}
     <div id="recent-list"></div>
   </section>
 
+  <!-- PARENT VIEW -->
+  <section id="view-parent" class="view">
+    <button class="back" onclick="go('home')">‹ Back</button>
+    <h1 style="font-size:26px;margin-top:6px">👪 Parent View</h1>
+    <p class="result-sub" style="text-align:left;margin:6px 4px 14px;font-size:16px">Every practice day, with corrects and wrongs for each sprint.</p>
+    <div id="parent-list"></div>
+  </section>
+
   <!-- NEW PLAYER -->
   <section id="view-newuser" class="view">
     <button class="back" onclick="go('home')">‹ Back</button>
@@ -317,7 +339,7 @@ function specText(profile, diff){
   return `${s.l[0]}–${s.l[1]} × ${s.r[0]}–${s.r[1]}`;
 }
 const SESSION_SECONDS = 10 * 60;
-const MAX_RESULTS = 25;
+const MAX_RESULTS = 200;   // full practice log for Parent View (kid "Recent" view shows a short slice)
 const HISTORY_SESSIONS = 2;
 
 /* ---------- Persistence ---------- */
@@ -629,7 +651,7 @@ function showRecent(){
   if(!st.recentSessions.length){
     list.innerHTML = `<div class="empty">No sessions yet.<br>Finish a 10-minute sprint and it will show up here.</div>`;
   } else {
-    st.recentSessions.forEach(r => {
+    st.recentSessions.slice(0,25).forEach(r => {
       const d = new Date(r.date);
       const when = d.toLocaleDateString(undefined,{month:"short",day:"numeric"}) + " · " +
                    d.toLocaleTimeString(undefined,{hour:"numeric",minute:"2-digit"});
@@ -646,6 +668,47 @@ function showRecent(){
     });
   }
   go("recent");
+}
+
+/* ---------- PARENT VIEW (all profiles, sessions grouped by day) ---------- */
+function showParent(){
+  const wrap = document.getElementById("parent-list");
+  wrap.innerHTML = "";
+  loadProfiles().forEach(p => {
+    const st = getStats(p.id);
+    const sessions = st.recentSessions || [];
+    const block = document.createElement("div");
+    block.className = "parent-block";
+    let html = `<div class="parent-name">${p.emoji||"🙂"} ${escapeHtml(p.name)}</div>`;
+    if(!sessions.length){
+      html += `<div class="parent-empty">No practice yet.</div>`;
+    } else {
+      const groups = {}, order = [];
+      sessions.forEach(s => { const d = dayKey(s.date); if(!groups[d]){ groups[d]=[]; order.push(d); } groups[d].push(s); });
+      order.forEach(d => {
+        const rows = groups[d];
+        const c = rows.reduce((a,s)=>a+(s.correct||0),0);
+        const w = rows.reduce((a,s)=>a+(s.wrong||0),0);
+        const dateLabel = new Date(d+"T00:00:00").toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric"});
+        html += `<div class="parent-day"><div class="pd-head">
+            <span class="pd-date">${dateLabel}</span>
+            <span class="pd-sum">${rows.length} ${rows.length===1?"sprint":"sprints"} · <b class="cok">${c} ✓</b> · <b class="cwr">${w} ✗</b></span></div>`;
+        rows.forEach(s => {
+          const t = new Date(s.date).toLocaleTimeString(undefined,{hour:"numeric",minute:"2-digit"});
+          const acc = s.attempted ? Math.round(s.accuracy*100)+"%" : "—";
+          html += `<div class="pd-row">
+              <span class="pr-time">${t}</span>
+              <span class="pr-diff">${s.difficulty==="medium"?"Medium":"Hard"}</span>
+              <span class="pr-cw"><b class="cok">${s.correct} ✓</b> <b class="cwr">${s.wrong} ✗</b></span>
+              <span class="pr-acc">${acc}</span></div>`;
+        });
+        html += `</div>`;
+      });
+    }
+    block.innerHTML = html;
+    wrap.appendChild(block);
+  });
+  go("parent");
 }
 
 /* ---------- NEW PLAYER ---------- */
