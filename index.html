@@ -192,6 +192,8 @@ button{font-family:inherit;cursor:pointer;border:none}
       <div class="tile"><div class="ti">✅</div><b id="t-sess">0</b><span>Sessions</span></div>
       <div class="tile"><div class="ti">🔥</div><b id="t-streak">—</b><span>Streak</span></div>
     </div>
+    <div class="section-label">Operation</div>
+    <div class="diff-row" id="op-row"></div>
     <div class="section-label">Difficulty</div>
     <div class="diff-row" id="diff-row"></div>
     <div class="spacer"></div>
@@ -328,14 +330,28 @@ function loadProfiles(){
 function saveProfiles(list){ try{ localStorage.setItem(PROFILES_KEY, JSON.stringify(list)); }catch(e){} }
 function profileById(id){ return loadProfiles().find(p => p.id === id) || null; }
 
-function spec(profile, diff){
+function multiplySpec(profile, diff){
   if(profile.grade >= 4){
     return diff === "hard" ? {l:[51,99], r:[51,99]} : {l:[10,50], r:[10,50]};
   }
   return diff === "hard" ? {l:[51,99], r:[2,9]} : {l:[10,50], r:[2,9]};
 }
-function specText(profile, diff){
-  const s = spec(profile, diff);
+function divisionSpec(profile, diff){
+  if(profile.grade >= 4){
+    return diff === "hard"
+      ? {dividend:[100,999], divisor:[10,25], quotient:[5,40]}
+      : {dividend:[10,99], divisor:[2,9]};
+  }
+  return diff === "hard"
+    ? {dividend:[10,99], divisor:[2,9]}
+    : {dividend:[10,99], divisor:[2,5]};
+}
+function specText(profile, operation, diff){
+  if(operation === "divide"){
+    const s = divisionSpec(profile,diff);
+    return `${s.dividend[0]}–${s.dividend[1]} ÷ ${s.divisor[0]}–${s.divisor[1]} · exact`;
+  }
+  const s = multiplySpec(profile,diff);
   return `${s.l[0]}–${s.l[1]} × ${s.r[0]}–${s.r[1]}`;
 }
 const SESSION_SECONDS = 10 * 60;
@@ -384,40 +400,71 @@ function displayStreak(current, lastKey, todayKey){
 
 /* ---------- Question generation ---------- */
 function randInt([lo,hi]){ return lo + Math.floor(Math.random() * (hi - lo + 1)); }
-function makeQuestion(l, r){
+function makeMultiplicationQuestion(l, r){
   const lo = Math.min(l,r), hi = Math.max(l,r);
   return { l, r, answer:l*r, display:`${l} × ${r}`, key:`${lo}x${hi}` };
 }
-function recentKeysFor(stats, diff){
-  const sessions = stats.historyByDiff[diff] || [];
+function makeDivisionQuestion(dividend, divisor){
+  return { l:dividend, r:divisor, answer:dividend/divisor,
+           display:`${dividend} ÷ ${divisor}`, key:`${dividend}d${divisor}` };
+}
+function historyBucket(operation,diff){ return `${operation}:${diff}`; }
+function recentKeysFor(stats, operation, diff){
+  const history = stats.historyByDiff || {};
+  const sessions = history[historyBucket(operation,diff)] ||
+    (operation === "multiply" ? (history[diff] || []) : []); // keep avoiding legacy multiplication questions
   const set = new Set();
   sessions.forEach(list => list.forEach(k => set.add(k)));
   return set;
 }
-function nextQuestion(profile, diff, sessionKeys, recentKeys){
-  const s = spec(profile, diff);
+function randomDivisionQuestion(profile,diff){
+  const s=divisionSpec(profile,diff);
+  for(let i=0;i<50;i++){
+    const divisor=randInt(s.divisor);
+    const qLo=Math.max(s.quotient?s.quotient[0]:1, Math.ceil(s.dividend[0]/divisor));
+    const qHi=Math.min(s.quotient?s.quotient[1]:Number.MAX_SAFE_INTEGER, Math.floor(s.dividend[1]/divisor));
+    if(qLo<=qHi){ const quotient=randInt([qLo,qHi]); return makeDivisionQuestion(quotient*divisor,divisor); }
+  }
+  return makeDivisionQuestion(12,3);
+}
+function randomQuestion(profile,operation,diff){
+  if(operation === "divide") return randomDivisionQuestion(profile,diff);
+  const s=multiplySpec(profile,diff);return makeMultiplicationQuestion(randInt(s.l),randInt(s.r));
+}
+function allQuestions(profile,operation,diff){
+  const out=[];
+  if(operation === "divide"){
+    const s=divisionSpec(profile,diff);
+    for(let divisor=s.divisor[0];divisor<=s.divisor[1];divisor++){
+      const qLo=Math.max(s.quotient?s.quotient[0]:1,Math.ceil(s.dividend[0]/divisor));
+      const qHi=Math.min(s.quotient?s.quotient[1]:Number.MAX_SAFE_INTEGER,Math.floor(s.dividend[1]/divisor));
+      for(let quotient=qLo;quotient<=qHi;quotient++)out.push(makeDivisionQuestion(quotient*divisor,divisor));
+    }
+  } else {
+    const s=multiplySpec(profile,diff);
+    for(let l=s.l[0];l<=s.l[1];l++)for(let r=s.r[0];r<=s.r[1];r++)out.push(makeMultiplicationQuestion(l,r));
+  }
+  return out;
+}
+function nextQuestion(profile, operation, diff, sessionKeys, recentKeys){
   // Pass 1: avoid session + recent history
   for(let i=0;i<300;i++){
-    const q = makeQuestion(randInt(s.l), randInt(s.r));
+    const q = randomQuestion(profile,operation,diff);
     if(!sessionKeys.has(q.key) && !recentKeys.has(q.key)) return q;
   }
   // Pass 2: allow older questions, still no session repeats
   for(let i=0;i<600;i++){
-    const q = makeQuestion(randInt(s.l), randInt(s.r));
+    const q = randomQuestion(profile,operation,diff);
     if(!sessionKeys.has(q.key)) return q;
   }
   // Pass 3: deterministic sweep (last resort)
-  for(let l=s.l[0]; l<=s.l[1]; l++){
-    for(let r=s.r[0]; r<=s.r[1]; r++){
-      const q = makeQuestion(l,r);
-      if(!sessionKeys.has(q.key)) return q;
-    }
-  }
-  return makeQuestion(randInt(s.l), randInt(s.r)); // space exhausted (unreachable in 5 min)
+  const candidates=allQuestions(profile,operation,diff);
+  for(const q of candidates)if(!sessionKeys.has(q.key))return q;
+  return candidates[0] || randomQuestion(profile,operation,diff); // question space exhausted
 }
 
 /* ---------- Recording a finished session ---------- */
-function recordSession(profileId, diff, correct, wrong, keys){
+function recordSession(profileId, operation, diff, correct, wrong, keys){
   const all = loadAll();
   const stats = all[profileId] || blankStats(profileId);
   const attempted = correct + wrong;
@@ -432,15 +479,16 @@ function recordSession(profileId, diff, correct, wrong, keys){
   stats.lastPracticeDate = todayKey;
   stats.updatedAt = now.getTime();
 
-  const result = { date:now.toISOString(), difficulty:diff, attempted, correct, wrong,
+  const result = { date:now.toISOString(), operation, difficulty:diff, attempted, correct, wrong,
                    score:correct, accuracy: attempted ? correct/attempted : 0, wasNewRecord };
   stats.recentSessions.unshift(result);
   if(stats.recentSessions.length > MAX_RESULTS) stats.recentSessions.length = MAX_RESULTS;
 
-  const hist = stats.historyByDiff[diff] || [];
+  const bucket=historyBucket(operation,diff);
+  const hist = stats.historyByDiff[bucket] || [];
   hist.unshift(keys);
   if(hist.length > HISTORY_SESSIONS) hist.length = HISTORY_SESSIONS;
-  stats.historyByDiff[diff] = hist;
+  stats.historyByDiff[bucket] = hist;
 
   all[profileId] = stats;
   saveAll(all);
@@ -456,6 +504,7 @@ function go(name){
 
 /* ---------- App state ---------- */
 let currentProfileId = null;
+let currentOperation = "multiply";
 let currentDiff = "medium";
 let session = null; // {sessionKeys, keysUsed, correct, wrong, question, endsAt, timer, running}
 
@@ -495,6 +544,7 @@ function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;",
 /* ---------- DASHBOARD ---------- */
 function openProfile(id){
   currentProfileId = id;
+  currentOperation = "multiply";
   currentDiff = "medium";
   renderDash();
   go("dash");
@@ -521,28 +571,42 @@ function renderDash(){
   document.getElementById("t-sess").textContent = st.totalSessions;
   document.getElementById("t-streak").textContent = ds > 0 ? ds + (ds===1?" day":" days") : "—";
 
+  const opRow = document.getElementById("op-row");
+  opRow.innerHTML = "";
+  [{id:"multiply",name:"Multiplication",desc:"Practice times tables"},
+   {id:"divide",name:"Division",desc:"Exact answers only"}].forEach(o => {
+    const el = document.createElement("button");
+    el.className = "diff" + (currentOperation===o.id ? " sel "+p.cls : "");
+    el.innerHTML = `<div class="dn">${o.name}</div><div class="dr">${o.desc}</div>`;
+    el.onclick = () => { currentOperation = o.id; renderDash(); };
+    opRow.appendChild(el);
+  });
+
   const row = document.getElementById("diff-row");
   row.innerHTML = "";
   ["medium","hard"].forEach(d => {
     const el = document.createElement("button");
     el.className = "diff" + (currentDiff===d ? " sel "+p.cls : "");
-    el.innerHTML = `<div class="dn">${d==="medium"?"Medium":"Hard"}</div><div class="dr">${specText(p,d)}</div>`;
+    el.innerHTML = `<div class="dn">${d==="medium"?"Medium":"Hard"}</div><div class="dr">${specText(p,currentOperation,d)}</div>`;
     el.onclick = () => { currentDiff = d; renderDash(); };
     row.appendChild(el);
   });
+  document.getElementById("start-btn").textContent =
+    `⏱️ Start 10-Minute ${currentOperation==="divide"?"Division":"Multiplication"}`;
 }
 
 /* ---------- SESSION ---------- */
 function startSession(){
   const p = profileById(currentProfileId);
-  const recentKeys = recentKeysFor(getStats(currentProfileId), currentDiff);
+  const recentKeys = recentKeysFor(getStats(currentProfileId), currentOperation, currentDiff);
   session = {
-    profile:p, diff:currentDiff, recentKeys,
+    profile:p, operation:currentOperation, diff:currentDiff, recentKeys,
     sessionKeys:new Set(), keysUsed:[], correct:0, wrong:0,
     endsAt: Date.now() + SESSION_SECONDS*1000, running:true, timer:null, fbToken:0
   };
   document.getElementById("s-who").textContent = p.name;
-  document.getElementById("s-diff").textContent = currentDiff==="medium"?"Medium":"Hard";
+  document.getElementById("s-diff").textContent =
+    `${currentOperation==="divide"?"Division":"Multiplication"} • ${currentDiff==="medium"?"Medium":"Hard"}`;
   document.getElementById("s-correct").textContent = "0 ✓";
   document.getElementById("s-wrong").textContent = "0 ✗";
   document.getElementById("s-answer").value = "";
@@ -557,7 +621,7 @@ function startSession(){
   setTimeout(() => document.getElementById("s-answer").focus(), 250);
 }
 function nextQ(){
-  const q = nextQuestion(session.profile, session.diff, session.sessionKeys, session.recentKeys);
+  const q = nextQuestion(session.profile, session.operation, session.diff, session.sessionKeys, session.recentKeys);
   session.sessionKeys.add(q.key);
   session.keysUsed.push(q.key);
   session.question = q;
@@ -615,7 +679,7 @@ function finishSession(){
   document.getElementById("s-submit").disabled = true;
   document.getElementById("s-answer").blur();
   const { result, stats } = recordSession(
-    session.profile.id, session.diff, session.correct, session.wrong, session.keysUsed);
+    session.profile.id, session.operation, session.diff, session.correct, session.wrong, session.keysUsed);
   showSummary(result, stats);
   if(syncEnabled()) syncNow();   // push this result up (fire-and-forget)
 }
@@ -624,7 +688,7 @@ function finishSession(){
 function showSummary(result, stats){
   document.getElementById("sum-title").textContent = result.wasNewRecord ? "🎉 New Record!" : "⏱️ Time's Up!";
   document.getElementById("sum-sub").textContent =
-    `${escapeHtml(session.profile.name)} • ${result.difficulty==="medium"?"Medium":"Hard"}`;
+    `${session.profile.name} • ${(result.operation||"multiply")==="divide"?"Division":"Multiplication"} • ${result.difficulty==="medium"?"Medium":"Hard"}`;
   document.getElementById("sum-score").textContent = result.score;
   document.getElementById("sum-cap").textContent = result.score===1 ? "point this sprint" : "points this sprint";
   document.getElementById("sum-att").textContent = result.attempted;
@@ -657,9 +721,10 @@ function showRecent(){
                    d.toLocaleTimeString(undefined,{hour:"numeric",minute:"2-digit"});
       const item = document.createElement("div");
       item.className = "result-item";
+      const op = (r.operation||"multiply")==="divide" ? "÷" : "×";
       item.innerHTML = `
         <div class="rh"><span>${when}</span>
-          <span class="pill ${r.difficulty==="hard"?"hard":""}">${r.difficulty==="medium"?"Medium":"Hard"}</span></div>
+          <span class="pill ${r.difficulty==="hard"?"hard":""}">${op} ${r.difficulty==="medium"?"Medium":"Hard"}</span></div>
         <div class="rb">
           <div class="rs">${r.score} <span>${r.score===1?"pt":"pts"}</span> ${r.wasNewRecord?"🏆":""}</div>
           <div class="rd">${r.correct} ✓  ${r.wrong} ✗  ${r.attempted?Math.round(r.accuracy*100)+"%":"—"}</div>
@@ -696,9 +761,10 @@ function showParent(){
         rows.forEach(s => {
           const t = new Date(s.date).toLocaleTimeString(undefined,{hour:"numeric",minute:"2-digit"});
           const acc = s.attempted ? Math.round(s.accuracy*100)+"%" : "—";
+          const op = (s.operation||"multiply")==="divide" ? "÷" : "×";
           html += `<div class="pd-row">
               <span class="pr-time">${t}</span>
-              <span class="pr-diff">${s.difficulty==="medium"?"Medium":"Hard"}</span>
+              <span class="pr-diff">${op} ${s.difficulty==="medium"?"Medium":"Hard"}</span>
               <span class="pr-cw"><b class="cok">${s.correct} ✓</b> <b class="cwr">${s.wrong} ✗</b></span>
               <span class="pr-acc">${acc}</span></div>`;
         });
@@ -723,8 +789,8 @@ function showNewUser(){
 function renderGradePick(){
   const row = document.getElementById("nu-grade");
   row.innerHTML = "";
-  [{g:4,label:"Grade 4",cls:"fourth",desc:"2-digit × 2-digit"},
-   {g:1,label:"Grade 1",cls:"first",desc:"2-digit × 1-digit"}].forEach(o => {
+  [{g:4,label:"Grade 4",cls:"fourth",desc:"Multiplication & division"},
+   {g:1,label:"Grade 1",cls:"first",desc:"Multiplication & division"}].forEach(o => {
     const el = document.createElement("button");
     el.className = "diff" + (newGrade===o.g ? " sel "+o.cls : "");
     el.innerHTML = `<div class="dn">${o.label}</div><div class="dr">${o.desc}</div>`;
@@ -779,10 +845,12 @@ function mergeStats(a,b){
     .sort((x,y)=> (x.date<y.date?1:x.date>y.date?-1:0))
     .forEach(s => { if(s && !seen.has(s.date)){ seen.add(s.date); rs.push(s); } });
   base.recentSessions = rs.slice(0, MAX_RESULTS);
-  const hist={};
-  ["medium","hard"].forEach(d => {
-    const hb=(b.historyByDiff&&b.historyByDiff[d])||[], ha=(a.historyByDiff&&a.historyByDiff[d])||[];
-    hist[d] = [...hb, ...ha].slice(0, HISTORY_SESSIONS);
+  const hist={}, historyKeys=new Set([
+    ...Object.keys(a.historyByDiff||{}), ...Object.keys(b.historyByDiff||{})
+  ]);
+  historyKeys.forEach(key => {
+    const hb=(b.historyByDiff&&b.historyByDiff[key])||[], ha=(a.historyByDiff&&a.historyByDiff[key])||[];
+    hist[key] = [...hb, ...ha].slice(0, HISTORY_SESSIONS);
   });
   base.historyByDiff = hist;
   return base;
